@@ -1,0 +1,78 @@
+#!/bin/bash
+
+function usage {
+   echo -e "\nsftpx - proxy-oriented sftp client wrapper"
+   echo -e "\nUsage:"
+   echo -e "    sftpx [-x <proxy_addr>] -- <sftp_args>"
+   echo -e "Where:"
+   echo -e "             -x = URI for SFTP proxy server"
+   echo -e "    <sftp_args> = usual arguments exposed by SFTP client\n"
+   exit 16
+}
+
+#------------------------------------------------------------------------------
+
+
+# Check for priniple tools
+
+SFTP=$(which sftp 2>&1)
+if [[ $? -ne 0 ]] || [[ ! -x ${SFTP} ]]; then
+   echo "Could not locate sftp client; exiting"
+   exit 1
+fi
+
+NCAT=$(which ncat 2>&1)
+if [[ $? -ne 0 ]] || [[ ! -x ${NCAT} ]]; then
+   echo "Could not locate ncat; exiting"
+   exit 1
+fi
+
+
+# Parse cmd-line arguments
+
+TMP=$(getopt -o 'x:h' -n 'sftpx' -- "$@");
+#echo "Got TMP = $TMP"
+if [ $? -ne 0 ]; then
+	usage
+fi
+
+eval set -- "$TMP"
+unset TMP
+
+PXY=""
+while true; do
+	case "$1" in
+		'-x')
+			PXY="$2"
+			shift 2
+			continue
+		;;
+		'-h')
+         usage
+		;;
+		'--')
+			shift
+			break
+      ;;
+      *)
+			echo "Unrecognized argument $1" >&2
+		   usage	
+		;;
+
+   esac
+done
+
+#echo "Proxy = $PXY"
+PXY_CMD="ProxyCommand ${NCAT} --proxy $PXY %h %p"
+
+#echo "$@" 
+
+#echo 'Remaining arguments:'
+#for arg; do
+#	echo "--> '$arg'"
+#done
+
+echo $SFTP
+echo $PXY_CMD
+
+$SFTP -o "$PXY_CMD" "$@"
